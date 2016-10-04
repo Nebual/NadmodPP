@@ -1,0 +1,14 @@
+{
+	"title"		:	"Nadmod Prop Protection",
+	"type"		:	"tool",
+	"tags"		:	[ "build" ],
+	"description":	"NPP is a simple and efficient Prop Protection system. \n\n* Admins can touch all props (configurable)\n* All player spawned entities are protected by default from:\n- All Tools\n- Properties menu (right clicking props while holding C)\n- Gravity gun punt/pickup\n- Physgun pickup/reload\n* Has a friends system with cpanel that saves friends to file\n* Quick and easy buttons to cleanup either Disconnected Player's stuff or specific players, which also show the current # of entities that player owns\n* Autoclean Disconnected Player's props timer\n* Simple overlay shown on all entities shows owner, class, model, and entID\n* Freshly written for Gmod13, it includes blocking the new CanProperty (right click menu)\n* CPPI Compliant\n\nFor more information, see the Facepunch thread http://facepunch.com/showthread.php?t=1242185\nNote: Initially Protection is disabled serverwide, just tick on the Main Power Switch in the Admin CPanel and hit Apply.",
+	"ignore"	:
+	[
+		".git/*",
+		"*.psd",
+		"*.vcproj",
+		"*.svn*",
+		"*.txt"
+	]
+}
