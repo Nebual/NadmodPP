@@ -92,17 +92,21 @@ function NADMOD.AdminPanel(Panel, runByNetReceive)
 	if Panel then
 		if !NADMOD.AdminCPanel then NADMOD.AdminCPanel = Panel end
 	end
+	Panel:ClearControls()
+
+	local nonadmin_help = Panel:Help("")
+	nonadmin_help:SetAutoStretchVertical(false)
 	if not runByNetReceive then 
 		RunConsoleCommand("npp_refreshconfig")
 		timer.Create("NADMOD.AdminPanelCheckFail",0.75,1,function()
-			Panel:ClearControls()
-			Panel:Help("Waiting for the server to say you're an admin...")
+			nonadmin_help:SetText("Waiting for the server to say you're an admin...")
 		end)
-		return
+		if not NADMOD.PPConfig then
+			return
+		end
+	else
+		timer.Remove("NADMOD.AdminPanelCheckFail")
 	end
-	
-	timer.Remove("NADMOD.AdminPanelCheckFail")
-	Panel:ClearControls()
 	Panel:SetName("NADMOD PP Admin Panel")
 	
 	Panel:CheckBox(	"Main PP Power Switch", "npp_toggle")
