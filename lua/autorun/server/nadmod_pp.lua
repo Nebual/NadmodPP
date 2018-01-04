@@ -14,7 +14,10 @@ if not NADMOD then
 	function NADMOD.Save()
 		file.Write("nadmod_config.txt", util.TableToJSON({Users = NADMOD.Users, Groups = NADMOD.Groups, Bans = NADMOD.Bans, PPConfig = NADMOD.PPConfig}))
 	end
-	hook.Add("Shutdown","NADMOD.Save",NADMOD.Save)
+	hook.Add("Shutdown","NADMOD.Save", function()
+		if game.SinglePlayer() then return end
+		NADMOD.Save()
+	end)
 	function NADMOD.FindPlayer(nick) 
 		if not nick or nick == "" then return end 
 		nick = string.lower(nick)
@@ -60,6 +63,9 @@ if not NADMOD.Props then
 		elseif PP_Settings then Error("NPP has detected Evolve's PP plugin, you probably only want one PP active at a time!!\n")
 		end
 	end)
+	if game.SinglePlayer() then
+		NADMOD.PPConfig["toggle"] = false
+	end
 end
 local metaply = FindMetaTable("Player")
 local metaent = FindMetaTable("Entity")
