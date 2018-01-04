@@ -488,6 +488,7 @@ function NADMOD.DebugTotals(ply,cmd,args)
 end
 concommand.Add("nadmod_totals", NADMOD.DebugTotals)
 
+CreateConVar("nadmod_overlay", 2, {FCVAR_NOTIFY, FCVAR_ARCHIVE, FCVAR_REPLICATED}, "0 - Disables NPP Overlay. 1 - Minimal overlay of just owner info. 2 - Includes model, entityID, class")
 
 --=========================================================--
 --   Clientside Callbacks for the Friends/Options panels   --
