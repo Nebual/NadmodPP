@@ -35,7 +35,7 @@ if not NADMOD then
 end
 if not NADMOD.Props then
 	-- NADMOD PP Initialization
-	NADMOD.PPVersion = "1.3.1"
+	NADMOD.PPVersion = "1.4"
 	NADMOD.Props = {} // {entid = {Ent = ent, Owner = ply, SteamID = ply:SteamID(), Name = ply:Nick() or "W" or "O"}}
 	NADMOD.PropOwnersSmall = {} // A smaller buffer of PropOwner names to send to current players
 	NADMOD.AutoCDPTimers = {}
@@ -331,6 +331,7 @@ function NADMOD.WorldOwner()
 	print("Nadmod Prop Protection: "..WorldEnts.." props belong to world")
 end
 if CurTime() < 5 then timer.Create("NADMOD.PPFindWorldProps",7,1,NADMOD.WorldOwner) end
+hook.Add("PostCleanupMap","NADMOD.PPFindWorldProps",NADMOD.WorldOwner)
 
 
 function NADMOD.EntityRemoved(ent)
