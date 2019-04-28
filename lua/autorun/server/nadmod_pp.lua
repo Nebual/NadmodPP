@@ -35,7 +35,7 @@ if not NADMOD then
 end
 if not NADMOD.Props then
 	-- NADMOD PP Initialization
-	NADMOD.PPVersion = "1.4"
+	NADMOD.PPVersion = "1.4.1"
 	NADMOD.Props = {} // {entid = {Ent = ent, Owner = ply, SteamID = ply:SteamID(), Name = ply:Nick() or "W" or "O"}}
 	NADMOD.PropOwnersSmall = {} // A smaller buffer of PropOwner names to send to current players
 	NADMOD.AutoCDPTimers = {}
