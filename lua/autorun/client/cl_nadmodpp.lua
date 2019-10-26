@@ -6,23 +6,28 @@
 if !NADMOD then 
 	NADMOD = {}
 	NADMOD.PropOwners = {}
+	NADMOD.PropNames = {}
 	NADMOD.PPConfig = {}
 	NADMOD.Friends = {}
 end
 
 local Props = NADMOD.PropOwners
+local PropNames = NADMOD.PropNames
 net.Receive("nadmod_propowners",function(len)
-	local set = {}
+	local nameMap = {}
 	for i=1, net.ReadUInt(8) do
-		set[i] = net.ReadString()
+		nameMap[i] = net.ReadString()
 	end
 	for i=1, net.ReadUInt(32) do
-		local id, str = net.ReadUInt(16), set[net.ReadUInt(8)]
+		local id, str = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
 		if id==0 then break end
-		if str == "-" then Props[id] = nil 
-		elseif str == "W" then Props[id] = "World"
-		elseif str == "O" then Props[id] = "Ownerless"
-		else Props[id] = str
+		if str == "-" then Props[id] = nil PropNames[id] = nil
+		elseif str == "W" then PropNames[id] = "World"
+		elseif str == "O" then PropNames[id] = "Ownerless"
+		else
+			Props[id] = str
+			local ply = player.GetBySteamID(str)
+			PropNames[id] = ply and ply:IsValid() and ply:Nick() or "N/A"
 		end
 	end
 end)
@@ -44,11 +49,14 @@ function NADMOD.PlayerCanTouch(ply, ent)
 	end
 
 	-- Ownerless props can be touched by all
-	if Props[index] == "O" then return true end 
+	if PropNames[index] == "Ownerless" then return true end 
 	-- Admins can touch anyones props + world
 	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) then return true end
-	-- Players can touch their own props and friends
-	if Props[index] == ply:SteamID() then return true end
+	-- Players can touch their own props
+	local plySteam = ply:SteamID()
+	if Props[index] == plySteam then return true end
+	-- Friends can touch LocalPlayer()'s props
+	if Props[index] == LocalPlayer():SteamID() and NADMOD.Friends[plySteam] then return true end
 
 	return false
 end
@@ -72,14 +80,7 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 	if !tr.HitNonWorld then return end
 	local ent = tr.Entity
 	if ent:IsValid() && !ent:IsPlayer() then
-		local index = ent:EntIndex()
-		local text
-		local owner = NADMOD.GetPropOwner(ent)
-		if owner and owner:IsValid() then
-			text = "Owner: " .. owner:Nick()
-		else
-			text = "Owner: N/A"
-		end
+		local text = "Owner: " .. (PropNames[ent:EntIndex()] or "N/A")
 		surface.SetFont(font)
 		local Width, Height = surface.GetTextSize(text)
 		local boxWidth = Width + 25

@@ -82,26 +82,26 @@ end
 
 function NADMOD.SendPropOwners(props, ply)
 	net.Start("nadmod_propowners")
-		local seti = 1
-		local set = {}
+		local nameMap = {}
+		local nameMapi = 0
 		local count = 0
 		for k,v in pairs(props) do
-			if not set[v] then
-				set[v] = seti
-				set[seti] = v
-				seti = seti + 1
+			if not nameMap[v] then
+				nameMapi = nameMapi + 1
+				nameMap[v] = nameMapi
+				nameMap[nameMapi] = v
 			end
 			count = count + 1
 		end
-		net.WriteUInt(seti-1,8)
-		for i=1, seti-1 do
-			net.WriteString(set[i])
+		net.WriteUInt(nameMapi,8)
+		for i=1, nameMapi do
+			net.WriteString(nameMap[i])
 		end
 		
 		net.WriteUInt(count,32)
 		for k,v in pairs(props) do
 			net.WriteUInt(k,16)
-			net.WriteUInt(set[v],8)
+			net.WriteUInt(nameMap[v],8)
 		end
 	if ply then net.Send(ply) else net.Broadcast() end
 end
@@ -109,7 +109,7 @@ end
 function NADMOD.RefreshOwners()
 	if not timer.Exists("NADMOD.RefreshOwners") then
 		timer.Create("NADMOD.RefreshOwners", 0, 1, function()
-			NADMOD.SendPropOwners(NADMOD.PropOwnersSmall, ply)
+			NADMOD.SendPropOwners(NADMOD.PropOwnersSmall)
 			NADMOD.PropOwnersSmall = {}
 		end)
 	end
@@ -182,11 +182,11 @@ function NADMOD.PlayerCanTouch(ply, ent)
 		end
 
 		if !NADMOD.Props[index] then
-		-- To get here implies the ent has a 'valid' GetPlayer()/GetOwner(), but still couldn't get set properly
-		-- For example, if an NPC is sitting in jeep (??), the jeep's GetPlayer returns the driver? or something
-		ent:CPPISetOwnerless(true)
+			-- To get here implies the ent has a 'valid' GetPlayer()/GetOwner(), but still couldn't get set properly
+			-- For example, if an NPC is sitting in jeep (??), the jeep's GetPlayer returns the driver? or something
+			ent:CPPISetOwnerless(true)
 			if !NADMOD.Props[index] then return false end
-	end
+		end
 	end
 
 	-- Ownerless props can be touched by all
@@ -416,7 +416,7 @@ end
 function NADMOD.CleanPlayer(ply, tar)
 	if IsValid(tar) and tar:IsPlayer() then 
 		local count = NADMOD.CleanupPlayerProps(tar:SteamID())
-		NADMOD.Notify(ply:Nick().. " cleaned up " ..tar:Nick().."'s props ("..count..")")
+		NADMOD.Notify((ply:IsValid() and ply:Nick() or "Console") .. " cleaned up " ..tar:Nick().."'s props ("..count..")")
 	end
 end
 
@@ -449,7 +449,7 @@ function NADMOD.CleanName(ply, cmd, args, fullstr)
 			count = count + 1
 		end
 	end
-	NADMOD.Notify(ply:Nick() .. " cleaned up " ..fullstr.."'s props ("..count..")")
+	NADMOD.Notify((ply:IsValid() and ply:Nick() or "Console") .. " cleaned up " ..fullstr.."'s props ("..count..")")
 end
 concommand.Add("nadmod_cleanname",NADMOD.CleanName)
 
@@ -588,7 +588,7 @@ end
 function metaent:CPPIGetOwner() return self.SPPOwner end
 function metaent:CPPISetOwner(ply) return NADMOD.PlayerMakePropOwner(ply, self) end
 function metaent:CPPICanTool(ply,mode) return NADMOD.CanTool(ply,{Entity=self},mode) != false end
-function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) == true end
 function metaent:CPPICanPickup(ply) return NADMOD.GravGunPickup(ply, self) != false end
 function metaent:CPPICanPunt(ply) return NADMOD.GravGunPickup(ply, self) != false end
 if E2Lib and E2Lib.replace_function then
