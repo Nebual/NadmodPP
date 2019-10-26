@@ -93,7 +93,7 @@ function NADMOD.PPInitPlayer(ply)
 		net.WriteUInt(table.Count(NADMOD.Props),16)
 		for k,v in pairs(NADMOD.Props) do
 			net.WriteUInt(k,16)
-			net.WriteString(v.Name)
+			net.WriteString(v.SteamID)
 		end
 	net.Send(ply)
 end
@@ -111,19 +111,25 @@ end
 hook.Add("PlayerSpawn", "NADMOD.PPOwnWeapons", NADMOD.PPOwnWeapons)
 
 function NADMOD.RefreshOwners()
+	if timer.Exists("NADMOD.RefreshOwners") then return end
+	timer.Create("NADMOD.RefreshOwners", 1, 0, function()
 	if next(NADMOD.PropOwnersSmall) then
 		net.Start("nadmod_propowners")
-			net.WriteUInt(table.Count(NADMOD.PropOwnersSmall),16)
+				local i = 1
 			for k,v in pairs(NADMOD.PropOwnersSmall) do
 				net.WriteUInt(k,16)
 				net.WriteString(v)
+					NADMOD.PropOwnersSmall[k] = nil
+					i = i + 1
+					if i==1000 then break end
 			end
-			//net.WriteTable(NADMOD.PropOwnersSmall)
+				net.WriteUInt(0,16)
 		net.Broadcast()
-		table.Empty(NADMOD.PropOwnersSmall)
+		else
+			timer.Remove("NADMOD.RefreshOwners")
 	end
+	end)
 end
-timer.Create("NADMOD.RefreshOwners", 1, 0, NADMOD.RefreshOwners)
 
 function NADMOD.IsFriendProp(ply, ent)
 	if IsValid(ent) && IsValid(ply) && ply:IsPlayer() && NADMOD.Props[ent:EntIndex()] then
@@ -138,39 +144,45 @@ end
 
 function NADMOD.PlayerCanTouch(ply, ent)
 	-- If PP is off or the ent is worldspawn, let them touch it
-	if not tobool(NADMOD.PPConfig["toggle"]) or ent:IsWorld() then return true end
-	
+	if not tobool(NADMOD.PPConfig["toggle"]) then return true end
+	if ent:IsWorld() then return ent:GetClass()=="worldspawn" end
 	if !IsValid(ent) or !IsValid(ply) or ent:IsPlayer() or !ply:IsPlayer() then return false end
 	
-	if not NADMOD.Props[ent:EntIndex()] then
+	local index = ent:EntIndex()
+	if not NADMOD.Props[index] then
+		if index == 0 then
+			-- Players cannot take ownership of EntIndex 0 ents (constraints, func_'s, map lights)
+			NADMOD.SetOwnerWorld(ent)
+			return false
+		end
+
 		local class = ent:GetClass()
-		if(string.find(class, "stone_") == 1 or string.find(class, "rock_") == 1 or string.find(class, "stargate_") == 0 or string.find(class, "dhd_") == 0 or class == "flag" or class == "item" or class == "predicted_viewmodel" or class == "gmod_hands" or class == "physgun_beam") then
+		if(class == "predicted_viewmodel" or class == "gmod_hands" or class == "physgun_beam") then
 			NADMOD.SetOwnerWorld(ent)
 		elseif ent.GetPlayer and IsValid(ent:GetPlayer()) then
 			NADMOD.PlayerMakePropOwner(ent:GetPlayer(), ent)
 		elseif ent.GetOwner and (IsValid(ent:GetOwner()) or ent:GetOwner():IsWorld()) then
 			NADMOD.PlayerMakePropOwner(ent:GetOwner(), ent)
-		elseif ent:EntIndex() == 0 then
-			-- Players cannot take ownership of EntIndex 0 ents (constraints, func_'s, map lights)
-			return false
 		else
 			NADMOD.PlayerMakePropOwner(ply, ent)
 			NADMOD.Notify(ply, "You now own this " .. class .. " (" .. string.sub(table.remove(string.Explode("/", ent:GetModel() or "?")), 1,-5) .. ")" )
 			return true
 		end
-	end
-	if !NADMOD.Props[ent:EntIndex()] then 
+
+		if !NADMOD.Props[index] then
 		-- To get here implies the ent has a 'valid' GetPlayer()/GetOwner(), but still couldn't get set properly
 		-- For example, if an NPC is sitting in jeep (??), the jeep's GetPlayer returns the driver? or something
 		ent:CPPISetOwnerless(true)
-		if !NADMOD.Props[ent:EntIndex()] then return end
+			if !NADMOD.Props[index] then return false end
 	end
+	end
+
 	-- Ownerless props can be touched by all
-	if NADMOD.Props[ent:EntIndex()].Name == "O" then return true end 
+	if NADMOD.Props[index].Name == "O" then return true end 
 	-- Admins can touch anyones props + world
 	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) then return true end
 	-- Players can touch their own props and friends
-	if NADMOD.Props[ent:EntIndex()].SteamID == ply:SteamID() or NADMOD.IsFriendProp(ply, ent) then return true end
+	if NADMOD.Props[index].SteamID == ply:SteamID() or NADMOD.IsFriendProp(ply, ent) then return true end
 	
 	return false
 end
@@ -264,8 +276,9 @@ function NADMOD.PlayerMakePropOwner(ply,ent)
 		SteamID = ply:SteamID(),
 		Name = ply:Nick()
 	}
-	NADMOD.PropOwnersSmall[ent:EntIndex()] = ply:Nick()
+	NADMOD.PropOwnersSmall[ent:EntIndex()] = ply:SteamID()
 	ent.SPPOwner = ply
+	NADMOD.RefreshOwners()
 end
 -- Hook into the cleanup and sbox-limit adding functions to catch most props
 if(cleanup) then
@@ -318,9 +331,9 @@ end
 -- Loop through all entities that exist when the map is loaded, these are all "world owned" entities
 function NADMOD.WorldOwner()
 	local WorldEnts = 0
-	for k,v in pairs(ents.FindByClass("*")) do
+	for k,v in pairs(ents.GetAll()) do
 		if(!v:IsPlayer() and (v:EntIndex() == 0 or !NADMOD.Props[v:EntIndex()])) and not IsValid(v.SPPOwner) then
-			if game.GetMap() == "gm_construct" and v:GetClass() == "func_brush" then
+			if v:GetClass() == "func_brush" and game.GetMap() == "gm_construct" then
 				v:CPPISetOwnerless(true)
 			else
 				NADMOD.SetOwnerWorld(v)
@@ -331,7 +344,9 @@ function NADMOD.WorldOwner()
 	print("Nadmod Prop Protection: "..WorldEnts.." props belong to world")
 end
 if CurTime() < 5 then timer.Create("NADMOD.PPFindWorldProps",7,1,NADMOD.WorldOwner) end
-hook.Add("PostCleanupMap","NADMOD.PPFindWorldProps",NADMOD.WorldOwner)
+hook.Add("PostCleanupMap","NADMOD.MapCleaned",function()
+	timer.Simple(0,function() NADMOD.WorldOwner() end)
+end)
 
 
 function NADMOD.EntityRemoved(ent)
@@ -382,10 +397,10 @@ function NADMOD.CleanupPlayerProps(steamid)
 	return count
 end
 
-function NADMOD.CleanPlayer(tar)
+function NADMOD.CleanPlayer(ply, tar)
 	if IsValid(tar) and tar:IsPlayer() then 
 		local count = NADMOD.CleanupPlayerProps(tar:SteamID())
-		NADMOD.Notify(tar:Nick().."'s props have been cleaned up ("..count..")")
+		NADMOD.Notify(ply:Nick().. " cleaned up " ..tar:Nick().."'s props ("..count..")")
 	end
 end
 
@@ -395,14 +410,14 @@ function NADMOD.CleanupProps(ply, cmd, args)
 		local count = NADMOD.CleanupPlayerProps(ply:SteamID())
 		NADMOD.Notify(ply,"Your props have been cleaned up ("..count..")")
 	elseif !ply:IsValid() or NADMOD.IsPPAdmin(ply) then
-		NADMOD.CleanPlayer(Entity(EntIndex))
+		NADMOD.CleanPlayer(ply, Entity(EntIndex))
 	end
 end
 concommand.Add("nadmod_cleanupprops", NADMOD.CleanupProps)
 
 function NADMOD.CleanPlayerConCommand(ply, cmd, args, fullstr)
 	if ply:IsValid() and not NADMOD.IsPPAdmin(ply) then return end
-	NADMOD.CleanPlayer(NADMOD.FindPlayer(fullstr))
+	NADMOD.CleanPlayer(ply, NADMOD.FindPlayer(fullstr))
 end
 concommand.Add("nadmod_cleanplayer", NADMOD.CleanPlayerConCommand)
 
@@ -418,7 +433,7 @@ function NADMOD.CleanName(ply, cmd, args, fullstr)
 			count = count + 1
 		end
 	end
-	NADMOD.Notify(fullstr.."'s props ("..count..") have been cleaned up")
+	NADMOD.Notify(ply:Nick() .. " cleaned up " ..fullstr.."'s props ("..count..")")
 end
 concommand.Add("nadmod_cleanname",NADMOD.CleanName)
 
@@ -557,7 +572,7 @@ end
 function metaent:CPPIGetOwner() return self.SPPOwner end
 function metaent:CPPISetOwner(ply) return NADMOD.PlayerMakePropOwner(ply, self) end
 function metaent:CPPICanTool(ply,mode) return NADMOD.CanTool(ply,{Entity=self},mode) != false end
-function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) == true end
+function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) end
 function metaent:CPPICanPickup(ply) return NADMOD.GravGunPickup(ply, self) != false end
 function metaent:CPPICanPunt(ply) return NADMOD.GravGunPickup(ply, self) != false end
 if E2Lib and E2Lib.replace_function then

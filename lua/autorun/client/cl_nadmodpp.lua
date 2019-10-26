@@ -12,9 +12,9 @@ end
 
 local Props = NADMOD.PropOwners
 net.Receive("nadmod_propowners",function(len) 
-	local num = net.ReadUInt(16)
-	for k=1,num do
+	for k=1,1000 do
 		local id,str = net.ReadUInt(16), net.ReadString()
+		if id==0 then break end
 		if str == "-" then Props[id] = nil 
 		elseif str == "W" then Props[id] = "World"
 		elseif str == "O" then Props[id] = "Ownerless"
@@ -22,6 +22,42 @@ net.Receive("nadmod_propowners",function(len)
 		end
 	end
 end)
+
+function NADMOD.GetPropOwner(ent)
+	local id = Props[ent:EntIndex()]
+	return id and player.GetBySteamID(id)
+end
+
+function NADMOD.PlayerCanTouch(ply, ent)
+	-- If PP is off or the ent is worldspawn, let them touch it
+	if not tobool(NADMOD.PPConfig["toggle"]) then return true end
+	if ent:IsWorld() then return ent:GetClass()=="worldspawn" end
+	if !IsValid(ent) or !IsValid(ply) or ent:IsPlayer() or !ply:IsPlayer() then return false end
+
+	local index = ent:EntIndex()
+	if not Props[index] then
+		return false
+	end
+
+	-- Ownerless props can be touched by all
+	if Props[index] == "O" then return true end 
+	-- Admins can touch anyones props + world
+	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) then return true end
+	-- Players can touch their own props and friends
+	if Props[index] == ply:SteamID() then return true end
+
+	return false
+end
+
+-- Does your admin mod not seem to work with Nadmod PP? Try overriding this function!
+function NADMOD.IsPPAdmin(ply)
+	if NADMOD.HasPermission then
+		return NADMOD.HasPermission(ply, "PP_All")
+	else
+		-- If the admin mod NADMOD isn't present, just default to using IsAdmin
+		return ply:IsAdmin()
+	end
+end
 
 local nadmod_overlay_convar = CreateConVar("nadmod_overlay", 2, {FCVAR_NOTIFY, FCVAR_ARCHIVE, FCVAR_REPLICATED}, "0 - Disables NPP Overlay. 1 - Minimal overlay of just owner info. 2 - Includes model, entityID, class")
 local font = "ChatFont"
@@ -32,7 +68,14 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 	if !tr.HitNonWorld then return end
 	local ent = tr.Entity
 	if ent:IsValid() && !ent:IsPlayer() then
-		local text = "Owner: " .. (Props[ent:EntIndex()] or "N/A")
+		local index = ent:EntIndex()
+		local text
+		local owner = NADMOD.GetPropOwner(ent)
+		if owner and owner:isValid() then
+			text = "Owner: " .. owner:Nick())
+		else
+			text = "Owner: N/A"
+		end
 		surface.SetFont(font)
 		local Width, Height = surface.GetTextSize(text)
 		local boxWidth = Width + 25
@@ -217,3 +260,24 @@ net.Receive("nadmod_notify", function(len)
 	surface.PlaySound("ambient/water/drip"..math.random(1, 4)..".wav")
 	print(text)
 end)
+
+CPPI = {}
+local metaent = FindMetaTable("Entity")
+
+function CPPI:GetName() return "Nadmod Prop Protection" end
+function CPPI:GetVersion() return "" end
+function metaply:CPPIGetFriends()
+	if not self:IsValid() then return {} end
+	local ret = {}
+	for _,tar in pairs(player.GetAll()) do
+		if GetConVar("npp_friend_"..tar:SteamID64()):GetBool() then
+			ret[#ret+1] = tar
+		end
+	end
+	return ret
+end
+function metaent:CPPIGetOwner() return NADMOD.GetPropOwner(self) end
+function metaent:CPPICanTool(ply,mode) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPickup(ply) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPunt(ply) return NADMOD.PlayerCanTouch(ply,self) end
