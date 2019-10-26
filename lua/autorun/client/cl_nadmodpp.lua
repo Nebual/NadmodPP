@@ -6,22 +6,70 @@
 if !NADMOD then 
 	NADMOD = {}
 	NADMOD.PropOwners = {}
+	NADMOD.PropNames = {}
 	NADMOD.PPConfig = {}
 	NADMOD.Friends = {}
 end
 
 local Props = NADMOD.PropOwners
-net.Receive("nadmod_propowners",function(len) 
-	local num = net.ReadUInt(16)
-	for k=1,num do
-		local id,str = net.ReadUInt(16), net.ReadString()
-		if str == "-" then Props[id] = nil 
-		elseif str == "W" then Props[id] = "World"
-		elseif str == "O" then Props[id] = "Ownerless"
-		else Props[id] = str
+local PropNames = NADMOD.PropNames
+net.Receive("nadmod_propowners",function(len)
+	local nameMap = {}
+	for i=1, net.ReadUInt(8) do
+		nameMap[i] = net.ReadString()
+	end
+	for i=1, net.ReadUInt(32) do
+		local id, str = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
+		if id==0 then break end
+		if str == "-" then Props[id] = nil PropNames[id] = nil
+		elseif str == "W" then PropNames[id] = "World"
+		elseif str == "O" then PropNames[id] = "Ownerless"
+		else
+			Props[id] = str
+			local ply = player.GetBySteamID(str)
+			PropNames[id] = ply and ply:IsValid() and ply:Nick() or "N/A"
 		end
 	end
 end)
+
+function NADMOD.GetPropOwner(ent)
+	local id = Props[ent:EntIndex()]
+	return id and player.GetBySteamID(id)
+end
+
+function NADMOD.PlayerCanTouch(ply, ent)
+	-- If PP is off or the ent is worldspawn, let them touch it
+	if not tobool(NADMOD.PPConfig["toggle"]) then return true end
+	if ent:IsWorld() then return ent:GetClass()=="worldspawn" end
+	if !IsValid(ent) or !IsValid(ply) or ent:IsPlayer() or !ply:IsPlayer() then return false end
+
+	local index = ent:EntIndex()
+	if not Props[index] then
+		return false
+	end
+
+	-- Ownerless props can be touched by all
+	if PropNames[index] == "Ownerless" then return true end 
+	-- Admins can touch anyones props + world
+	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) then return true end
+	-- Players can touch their own props
+	local plySteam = ply:SteamID()
+	if Props[index] == plySteam then return true end
+	-- Friends can touch LocalPlayer()'s props
+	if Props[index] == LocalPlayer():SteamID() and NADMOD.Friends[plySteam] then return true end
+
+	return false
+end
+
+-- Does your admin mod not seem to work with Nadmod PP? Try overriding this function!
+function NADMOD.IsPPAdmin(ply)
+	if NADMOD.HasPermission then
+		return NADMOD.HasPermission(ply, "PP_All")
+	else
+		-- If the admin mod NADMOD isn't present, just default to using IsAdmin
+		return ply:IsAdmin()
+	end
+end
 
 local nadmod_overlay_convar = CreateConVar("nadmod_overlay", 2, {FCVAR_NOTIFY, FCVAR_ARCHIVE, FCVAR_REPLICATED}, "0 - Disables NPP Overlay. 1 - Minimal overlay of just owner info. 2 - Includes model, entityID, class")
 local font = "ChatFont"
@@ -32,7 +80,7 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 	if !tr.HitNonWorld then return end
 	local ent = tr.Entity
 	if ent:IsValid() && !ent:IsPlayer() then
-		local text = "Owner: " .. (Props[ent:EntIndex()] or "N/A")
+		local text = "Owner: " .. (PropNames[ent:EntIndex()] or "N/A")
 		surface.SetFont(font)
 		local Width, Height = surface.GetTextSize(text)
 		local boxWidth = Width + 25
@@ -138,8 +186,9 @@ function NADMOD.AdminPanel(Panel, runByNetReceive)
 	end
 	for k, ply in pairs(player.GetAll()) do
 		if IsValid(ply) then
-			Panel:Button( ply:Nick().." ("..(counts[ply:Nick()] or 0)..")", "nadmod_cleanupprops", ply:EntIndex() ) 
-			dccount = dccount - (counts[ply:Nick()] or 0)
+			local steamid = ply:SteamID()
+			Panel:Button( ply:Nick().." ("..(counts[steamid] or 0)..")", "nadmod_cleanupprops", ply:EntIndex() ) 
+			dccount = dccount - (counts[steamid] or 0)
 		end
 	end
 	
@@ -217,3 +266,16 @@ net.Receive("nadmod_notify", function(len)
 	surface.PlaySound("ambient/water/drip"..math.random(1, 4)..".wav")
 	print(text)
 end)
+
+CPPI = {}
+local metaent = FindMetaTable("Entity")
+local metaply = FindMetaTable("Player")
+
+function CPPI:GetName() return "Nadmod Prop Protection" end
+function CPPI:GetVersion() return "" end
+function metaply:CPPIGetFriends() return {} end
+function metaent:CPPIGetOwner() return NADMOD.GetPropOwner(self) end
+function metaent:CPPICanTool(ply,mode) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPickup(ply) return NADMOD.PlayerCanTouch(ply,self) end
+function metaent:CPPICanPunt(ply) return NADMOD.PlayerCanTouch(ply,self) end
