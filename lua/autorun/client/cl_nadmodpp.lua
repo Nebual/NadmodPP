@@ -11,9 +11,13 @@ if !NADMOD then
 end
 
 local Props = NADMOD.PropOwners
-net.Receive("nadmod_propowners",function(len) 
-	for k=1,1000 do
-		local id,str = net.ReadUInt(16), net.ReadString()
+net.Receive("nadmod_propowners",function(len)
+	local set = {}
+	for i=1, net.ReadUInt(8) do
+		set[i] = net.ReadString()
+	end
+	for i=1, net.ReadUInt(32) do
+		local id, str = net.ReadUInt(16), set[net.ReadUInt(8)]
 		if id==0 then break end
 		if str == "-" then Props[id] = nil 
 		elseif str == "W" then Props[id] = "World"
@@ -263,19 +267,11 @@ end)
 
 CPPI = {}
 local metaent = FindMetaTable("Entity")
+local metaply = FindMetaTable("Player")
 
 function CPPI:GetName() return "Nadmod Prop Protection" end
 function CPPI:GetVersion() return "" end
-function metaply:CPPIGetFriends()
-	if not self:IsValid() then return {} end
-	local ret = {}
-	for _,tar in pairs(player.GetAll()) do
-		if GetConVar("npp_friend_"..tar:SteamID64()):GetBool() then
-			ret[#ret+1] = tar
-		end
-	end
-	return ret
-end
+function metaply:CPPIGetFriends() return {} end
 function metaent:CPPIGetOwner() return NADMOD.GetPropOwner(self) end
 function metaent:CPPICanTool(ply,mode) return NADMOD.PlayerCanTouch(ply,self) end
 function metaent:CPPICanPhysgun(ply) return NADMOD.PlayerCanTouch(ply,self) end

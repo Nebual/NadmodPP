@@ -80,6 +80,41 @@ function NADMOD.IsPPAdmin(ply)
 	end
 end
 
+function NADMOD.SendPropOwners(props, ply)
+	net.Start("nadmod_propowners")
+		local seti = 1
+		local set = {}
+		local count = 0
+		for k,v in pairs(props) do
+			if not set[v] then
+				set[v] = seti
+				set[seti] = v
+				seti = seti + 1
+			end
+			count = count + 1
+		end
+		net.WriteUInt(seti-1,8)
+		for i=1, seti-1 do
+			net.WriteString(set[i])
+		end
+		
+		net.WriteUInt(count,32)
+		for k,v in pairs(props) do
+			net.WriteUInt(k,16)
+			net.WriteUInt(set[v],8)
+		end
+	if ply then net.Send(ply) else net.Broadcast() end
+end
+
+function NADMOD.RefreshOwners()
+	if not timer.Exists("NADMOD.RefreshOwners") then
+		timer.Create("NADMOD.RefreshOwners", 0, 1, function()
+			NADMOD.SendPropOwners(NADMOD.PropOwnersSmall, ply)
+			NADMOD.PropOwnersSmall = {}
+		end)
+	end
+end
+
 function NADMOD.PPInitPlayer(ply)
 	local steamid = ply:SteamID()
 	for _,v in pairs(NADMOD.Props) do
@@ -89,13 +124,11 @@ function NADMOD.PPInitPlayer(ply)
 			if v.Ent.SetPlayer then v.Ent:SetPlayer(ply) end
 		end
 	end
-	net.Start("nadmod_propowners")
-		for k,v in pairs(NADMOD.Props) do
-			net.WriteUInt(k,16)
-			net.WriteString(v.SteamID)
-		end
-		net.WriteUInt(0,16)
-	net.Send(ply)
+	local tbl = {}
+	for k,v in pairs(NADMOD.Props) do
+		tbl[k] = v.SteamID
+	end
+	NADMOD.SendPropOwners(tbl, ply)
 end
 hook.Add("PlayerInitialSpawn", "NADMOD.PPInitPlayer", NADMOD.PPInitPlayer)
 
@@ -109,27 +142,6 @@ function NADMOD.PPOwnWeapons(ply)
 	end)
 end
 hook.Add("PlayerSpawn", "NADMOD.PPOwnWeapons", NADMOD.PPOwnWeapons)
-
-function NADMOD.RefreshOwners()
-	if timer.Exists("NADMOD.RefreshOwners") then return end
-	timer.Create("NADMOD.RefreshOwners", 1, 0, function()
-		if next(NADMOD.PropOwnersSmall) then
-			net.Start("nadmod_propowners")
-			local i = 1
-			for k,v in pairs(NADMOD.PropOwnersSmall) do
-				net.WriteUInt(k,16)
-				net.WriteString(v)
-				NADMOD.PropOwnersSmall[k] = nil
-				i = i + 1
-				if i==1000 then break end
-			end
-			net.WriteUInt(0,16)
-			net.Broadcast()
-		else
-			timer.Remove("NADMOD.RefreshOwners")
-		end
-	end)
-end
 
 function NADMOD.IsFriendProp(ply, ent)
 	if IsValid(ent) && IsValid(ply) && ply:IsPlayer() && NADMOD.Props[ent:EntIndex()] then
@@ -209,48 +221,11 @@ function NADMOD.GravGunPickup(ply, ent)
 	if NADMOD.Props[ent:EntIndex()] and NADMOD.Props[ent:EntIndex()].Name == "W" then return end
 	if !NADMOD.PlayerCanTouch(ply,ent) then return false end
 end
-hook.Add("GravGunPunt", "NADMOD.GravGunPunt", NADMOD.GravGunPickup)
-hook.Add("GravGunPickupAllowed", "NADMOD.GravGunPickupAllowed", NADMOD.GravGunPickup)
+--hook.Add("GravGunPunt", "NADMOD.GravGunPunt", NADMOD.GravGunPickup)
+--hook.Add("GravGunPickupAllowed", "NADMOD.GravGunPickupAllowed", NADMOD.GravGunPickup)
 
-NADMOD.PPWeirdTraces = {"wire_winch","wire_hydraulic","slider","hydraulic","winch","muscle"}
 function NADMOD.CanTool(ply, tr, mode)
-	local ent = tr.Entity
-	if !ent:IsWorld() and (!ent:IsValid() or ent:IsPlayer()) then return false end
-	if !NADMOD.PlayerCanTouch(ply, ent) then
-		if not ((NADMOD.Props[ent:EntIndex()] or {}).Name == "W" and (mode == "wire_debugger" or mode == "wire_adv")) then 
-			return false
-		end
-	elseif(mode == "nail") then
-		local Trace = {}
-		Trace.start = tr.HitPos
-		Trace.endpos = tr.HitPos + (ply:GetAimVector() * 16.0)
-		Trace.filter = {ply, tr.Entity}
-		local tr2 = util.TraceLine(Trace)
-		if(tr2.Hit and IsValid(tr2.Entity) and !tr2.Entity:IsPlayer()) then
-			if(!NADMOD.PlayerCanTouch(ply, tr2.Entity)) then
-				return false
-			end
-		end
-	elseif(table.HasValue(NADMOD.PPWeirdTraces, mode)) then
-		local Trace = {}
-		Trace.start = tr.HitPos
-		Trace.endpos = Trace.start + (tr.HitNormal * 16384)
-		Trace.filter = {ply}
-		local tr2 = util.TraceLine(Trace)
-		if(tr2.Hit and IsValid(tr2.Entity) and !tr2.Entity:IsPlayer()) then
-			if(!NADMOD.PlayerCanTouch(ply, tr2.Entity)) then
-				return false
-			end
-		end
-	elseif(mode == "remover") then
-		if(ply:KeyDown(IN_ATTACK2) or ply:KeyDownLast(IN_ATTACK2)) then
-			for k,v in pairs(constraint.GetAllConstrainedEntities(ent) or {}) do
-				if !NADMOD.PlayerCanTouch(ply, v) then
-					return false
-				end
-			end
-		end
-	end
+	if !NADMOD.PlayerCanTouch(ply, tr.Entity) then return false end
 end
 hook.Add("CanTool", "NADMOD.CanTool", NADMOD.CanTool)
 
@@ -280,6 +255,7 @@ function NADMOD.PlayerMakePropOwner(ply,ent)
 	ent.SPPOwner = ply
 	NADMOD.RefreshOwners()
 end
+
 -- Hook into the cleanup and sbox-limit adding functions to catch most props
 if(cleanup) then
 	local backupcleanupAdd = cleanup.Add
@@ -312,6 +288,7 @@ function metaent:CPPISetOwnerless(bool)
 		}
 		NADMOD.PropOwnersSmall[self:EntIndex()] = "O"
 		self.SPPOwner = game.GetWorld()
+		NADMOD.RefreshOwners()
 	else
 		NADMOD.EntityRemoved(self)
 	end
@@ -326,6 +303,7 @@ function NADMOD.SetOwnerWorld(ent)
 	}
 	NADMOD.PropOwnersSmall[ent:EntIndex()] = "W"
 	ent.SPPOwner = game.GetWorld()
+	NADMOD.RefreshOwners()
 end
 
 -- Loop through all entities that exist when the map is loaded, these are all "world owned" entities
@@ -352,6 +330,7 @@ end)
 function NADMOD.EntityRemoved(ent)
 	NADMOD.Props[ent:EntIndex()] = nil
 	NADMOD.PropOwnersSmall[ent:EntIndex()] = "-"
+	NADMOD.RefreshOwners()
 	if ent:IsValid() and ent:IsPlayer() and not ent:IsBot() then
 		-- This is more reliable than PlayerDisconnect
 		local steamid, nick = ent:SteamID(), ent:Nick()
