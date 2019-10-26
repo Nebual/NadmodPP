@@ -71,8 +71,8 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 		local index = ent:EntIndex()
 		local text
 		local owner = NADMOD.GetPropOwner(ent)
-		if owner and owner:isValid() then
-			text = "Owner: " .. owner:Nick())
+		if owner and owner:IsValid() then
+			text = "Owner: " .. owner:Nick()
 		else
 			text = "Owner: N/A"
 		end

@@ -90,11 +90,11 @@ function NADMOD.PPInitPlayer(ply)
 		end
 	end
 	net.Start("nadmod_propowners")
-		net.WriteUInt(table.Count(NADMOD.Props),16)
 		for k,v in pairs(NADMOD.Props) do
 			net.WriteUInt(k,16)
 			net.WriteString(v.SteamID)
 		end
+		net.WriteUInt(0,16)
 	net.Send(ply)
 end
 hook.Add("PlayerInitialSpawn", "NADMOD.PPInitPlayer", NADMOD.PPInitPlayer)
@@ -113,21 +113,21 @@ hook.Add("PlayerSpawn", "NADMOD.PPOwnWeapons", NADMOD.PPOwnWeapons)
 function NADMOD.RefreshOwners()
 	if timer.Exists("NADMOD.RefreshOwners") then return end
 	timer.Create("NADMOD.RefreshOwners", 1, 0, function()
-	if next(NADMOD.PropOwnersSmall) then
-		net.Start("nadmod_propowners")
-				local i = 1
+		if next(NADMOD.PropOwnersSmall) then
+			net.Start("nadmod_propowners")
+			local i = 1
 			for k,v in pairs(NADMOD.PropOwnersSmall) do
 				net.WriteUInt(k,16)
 				net.WriteString(v)
-					NADMOD.PropOwnersSmall[k] = nil
-					i = i + 1
-					if i==1000 then break end
+				NADMOD.PropOwnersSmall[k] = nil
+				i = i + 1
+				if i==1000 then break end
 			end
-				net.WriteUInt(0,16)
-		net.Broadcast()
+			net.WriteUInt(0,16)
+			net.Broadcast()
 		else
 			timer.Remove("NADMOD.RefreshOwners")
-	end
+		end
 	end)
 end
 
