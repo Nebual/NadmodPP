@@ -186,8 +186,9 @@ function NADMOD.AdminPanel(Panel, runByNetReceive)
 	end
 	for k, ply in pairs(player.GetAll()) do
 		if IsValid(ply) then
-			Panel:Button( ply:Nick().." ("..(counts[ply:Nick()] or 0)..")", "nadmod_cleanupprops", ply:EntIndex() ) 
-			dccount = dccount - (counts[ply:Nick()] or 0)
+			local steamid = ply:SteamID()
+			Panel:Button( ply:Nick().." ("..(counts[steamid] or 0)..")", "nadmod_cleanupprops", ply:EntIndex() ) 
+			dccount = dccount - (counts[steamid] or 0)
 		end
 	end
 	
