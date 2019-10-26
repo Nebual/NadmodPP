@@ -221,11 +221,48 @@ function NADMOD.GravGunPickup(ply, ent)
 	if NADMOD.Props[ent:EntIndex()] and NADMOD.Props[ent:EntIndex()].Name == "W" then return end
 	if !NADMOD.PlayerCanTouch(ply,ent) then return false end
 end
---hook.Add("GravGunPunt", "NADMOD.GravGunPunt", NADMOD.GravGunPickup)
---hook.Add("GravGunPickupAllowed", "NADMOD.GravGunPickupAllowed", NADMOD.GravGunPickup)
+hook.Add("GravGunPunt", "NADMOD.GravGunPunt", NADMOD.GravGunPickup)
+hook.Add("GravGunPickupAllowed", "NADMOD.GravGunPickupAllowed", NADMOD.GravGunPickup)
 
+NADMOD.PPWeirdTraces = {"wire_winch","wire_hydraulic","slider","hydraulic","winch","muscle"}
 function NADMOD.CanTool(ply, tr, mode)
-	if !NADMOD.PlayerCanTouch(ply, tr.Entity) then return false end
+	local ent = tr.Entity
+	if !ent:IsWorld() and (!ent:IsValid() or ent:IsPlayer()) then return false end
+	if !NADMOD.PlayerCanTouch(ply, ent) then
+		if not ((NADMOD.Props[ent:EntIndex()] or {}).Name == "W" and (mode == "wire_debugger" or mode == "wire_adv")) then 
+			return false
+		end
+	elseif(mode == "nail") then
+		local Trace = {}
+		Trace.start = tr.HitPos
+		Trace.endpos = tr.HitPos + (ply:GetAimVector() * 16.0)
+		Trace.filter = {ply, tr.Entity}
+		local tr2 = util.TraceLine(Trace)
+		if(tr2.Hit and IsValid(tr2.Entity) and !tr2.Entity:IsPlayer()) then
+			if(!NADMOD.PlayerCanTouch(ply, tr2.Entity)) then
+				return false
+			end
+		end
+	elseif(table.HasValue(NADMOD.PPWeirdTraces, mode)) then
+		local Trace = {}
+		Trace.start = tr.HitPos
+		Trace.endpos = Trace.start + (tr.HitNormal * 16384)
+		Trace.filter = {ply}
+		local tr2 = util.TraceLine(Trace)
+		if(tr2.Hit and IsValid(tr2.Entity) and !tr2.Entity:IsPlayer()) then
+			if(!NADMOD.PlayerCanTouch(ply, tr2.Entity)) then
+				return false
+			end
+		end
+	elseif(mode == "remover") then
+		if(ply:KeyDown(IN_ATTACK2) or ply:KeyDownLast(IN_ATTACK2)) then
+			for k,v in pairs(constraint.GetAllConstrainedEntities(ent) or {}) do
+				if !NADMOD.PlayerCanTouch(ply, v) then
+					return false
+				end
+			end
+		end
+	end
 end
 hook.Add("CanTool", "NADMOD.CanTool", NADMOD.CanTool)
 
