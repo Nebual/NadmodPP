@@ -16,18 +16,16 @@ local PropNames = NADMOD.PropNames
 net.Receive("nadmod_propowners",function(len)
 	local nameMap = {}
 	for i=1, net.ReadUInt(8) do
-		nameMap[i] = net.ReadString()
+		nameMap[i] = {SteamID = net.ReadString(), Name = net.ReadString()}
 	end
 	for i=1, net.ReadUInt(32) do
-		local id, str = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
-		if id==0 then break end
-		if str == "-" then Props[id] = nil PropNames[id] = nil
-		elseif str == "W" then PropNames[id] = "World"
-		elseif str == "O" then PropNames[id] = "Ownerless"
+		local id, owner = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
+		if owner.SteamID == "-" then Props[id] = nil PropNames[id] = nil
+		elseif owner.SteamID == "W" then PropNames[id] = "World"
+		elseif owner.SteamID == "O" then PropNames[id] = "Ownerless"
 		else
-			Props[id] = str
-			local ply = player.GetBySteamID(str)
-			PropNames[id] = ply and ply:IsValid() and ply:Nick() or "N/A"
+			Props[id] = owner.SteamID
+			PropNames[id] = owner.Name
 		end
 	end
 end)

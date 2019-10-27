@@ -86,22 +86,22 @@ function NADMOD.SendPropOwners(props, ply)
 		local nameMapi = 0
 		local count = 0
 		for k,v in pairs(props) do
-			if not nameMap[v] then
+			if not nameMap[v.SteamID] then
 				nameMapi = nameMapi + 1
-				nameMap[v] = nameMapi
+				nameMap[v.SteamID] = nameMapi
 				nameMap[nameMapi] = v
 			end
 			count = count + 1
 		end
 		net.WriteUInt(nameMapi,8)
 		for i=1, nameMapi do
-			net.WriteString(nameMap[i])
+			net.WriteString(nameMap[i].SteamID)
+			net.WriteString(nameMap[i].Name)
 		end
-		
 		net.WriteUInt(count,32)
 		for k,v in pairs(props) do
 			net.WriteUInt(k,16)
-			net.WriteUInt(nameMap[v],8)
+			net.WriteUInt(nameMap[v.SteamID],8)
 		end
 	if ply then net.Send(ply) else net.Broadcast() end
 end
@@ -117,18 +117,14 @@ end
 
 function NADMOD.PPInitPlayer(ply)
 	local steamid = ply:SteamID()
-	for _,v in pairs(NADMOD.Props) do
+	for k, v in pairs(NADMOD.Props) do
 		if v.SteamID == steamid then 
 			v.Owner = ply
 			v.Ent.SPPOwner = ply
 			if v.Ent.SetPlayer then v.Ent:SetPlayer(ply) end
 		end
 	end
-	local tbl = {}
-	for k,v in pairs(NADMOD.Props) do
-		tbl[k] = v.SteamID
-	end
-	NADMOD.SendPropOwners(tbl, ply)
+	NADMOD.SendPropOwners(NADMOD.Props, ply)
 end
 hook.Add("PlayerInitialSpawn", "NADMOD.PPInitPlayer", NADMOD.PPInitPlayer)
 
@@ -282,13 +278,14 @@ function NADMOD.PlayerMakePropOwner(ply,ent)
 	if !IsValid(ent) or ent:IsPlayer() then return end
 	if ply:IsWorld() then return NADMOD.SetOwnerWorld(ent) end
 	if !IsValid(ply) or !ply:IsPlayer() then return end
-	NADMOD.Props[ent:EntIndex()] = {
+	local index = ent:EntIndex()
+	NADMOD.Props[index] = {
 		Ent = ent,
 		Owner = ply,
 		SteamID = ply:SteamID(),
 		Name = ply:Nick()
 	}
-	NADMOD.PropOwnersSmall[ent:EntIndex()] = ply:SteamID()
+	NADMOD.PropOwnersSmall[index] = NADMOD.Props[index]
 	ent.SPPOwner = ply
 	NADMOD.RefreshOwners()
 end
@@ -317,13 +314,14 @@ hook.Add("PlayerSpawnedSWEP", "NADMOD.PlayerSpawnedSWEP", NADMOD.PlayerMakePropO
 function metaent:CPPISetOwnerless(bool)
 	if !IsValid(self) or self:IsPlayer() then return end
 	if(bool) then
-		NADMOD.Props[self:EntIndex()] = {
+		local index = self:EntIndex()
+		NADMOD.Props[index] = {
 			Ent = self,
 			Owner = game.GetWorld(),
 			SteamID = "O",
 			Name = "O"
 		}
-		NADMOD.PropOwnersSmall[self:EntIndex()] = "O"
+		NADMOD.PropOwnersSmall[index] = NADMOD.Props[index]
 		self.SPPOwner = game.GetWorld()
 		NADMOD.RefreshOwners()
 	else
@@ -332,13 +330,14 @@ function metaent:CPPISetOwnerless(bool)
 end
 
 function NADMOD.SetOwnerWorld(ent)
-	NADMOD.Props[ent:EntIndex()] = {
+	local index = ent:EntIndex()
+	NADMOD.Props[index] = {
 		Ent = ent,
 		Owner = game.GetWorld(),
 		SteamID = "W",
 		Name = "W"
 	}
-	NADMOD.PropOwnersSmall[ent:EntIndex()] = "W"
+	NADMOD.PropOwnersSmall[index] = NADMOD.Props[index]
 	ent.SPPOwner = game.GetWorld()
 	NADMOD.RefreshOwners()
 end
@@ -366,7 +365,7 @@ end)
 
 function NADMOD.EntityRemoved(ent)
 	NADMOD.Props[ent:EntIndex()] = nil
-	NADMOD.PropOwnersSmall[ent:EntIndex()] = "-"
+	NADMOD.PropOwnersSmall[ent:EntIndex()] = {SteamID = "-", Name = "-"}
 	NADMOD.RefreshOwners()
 	if ent:IsValid() and ent:IsPlayer() and not ent:IsBot() then
 		-- This is more reliable than PlayerDisconnect
