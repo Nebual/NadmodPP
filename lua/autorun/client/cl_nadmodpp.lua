@@ -16,15 +16,16 @@ local PropNames = NADMOD.PropNames
 net.Receive("nadmod_propowners",function(len)
 	local nameMap = {}
 	for i=1, net.ReadUInt(8) do
-		nameMap[i] = net.ReadString()
+		nameMap[i] = {SteamID = net.ReadString(), Name = net.ReadString()}
 	end
 	for i=1, net.ReadUInt(32) do
-		local id, str = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
-		if str == "-" then Props[id] = nil PropNames[id] = nil
-		elseif str == "W" then PropNames[id] = "World"
-		elseif str == "O" then PropNames[id] = "Ownerless"
+		local id, owner = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
+		if owner.SteamID == "-" then Props[id] = nil PropNames[id] = nil
+		elseif owner.SteamID == "W" then PropNames[id] = "World"
+		elseif owner.SteamID == "O" then PropNames[id] = "Ownerless"
 		else
-			Props[id] = str
+			Props[id] = owner.SteamID
+			PropNames[id] = owner.Name
 		end
 	end
 end)
@@ -77,16 +78,7 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 	if !tr.HitNonWorld then return end
 	local ent = tr.Entity
 	if ent:IsValid() && !ent:IsPlayer() then
-		local index = ent:EntIndex()
-		local name = PropNames[index]
-		if not name then
-			local ply = NADMOD.GetPropOwner(ent)
-			if ply and ply:IsValid() then
-				name = ply:Nick()
-				PropNames[index] = name
-			end
-		end
-		local text = "Owner: " .. (name or "N/A")
+		local text = "Owner: " .. (PropNames[ent:EntIndex()] or "N/A")
 		surface.SetFont(font)
 		local Width, Height = surface.GetTextSize(text)
 		local boxWidth = Width + 25
