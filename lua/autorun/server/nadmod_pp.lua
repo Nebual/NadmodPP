@@ -86,9 +86,9 @@ function NADMOD.SendPropOwners(props, ply)
 		local nameMapi = 0
 		local count = 0
 		for k,v in pairs(props) do
-			if not nameMap[v] then
+			if not nameMap[v.SteamID] then
 				nameMapi = nameMapi + 1
-				nameMap[v] = nameMapi
+				nameMap[v.SteamID] = nameMapi
 				nameMap[nameMapi] = v
 			end
 			count = count + 1
@@ -101,7 +101,7 @@ function NADMOD.SendPropOwners(props, ply)
 		net.WriteUInt(count,32)
 		for k,v in pairs(props) do
 			net.WriteUInt(k,16)
-			net.WriteUInt(nameMap[v],8)
+			net.WriteUInt(nameMap[v.SteamID],8)
 		end
 	if ply then net.Send(ply) else net.Broadcast() end
 end
