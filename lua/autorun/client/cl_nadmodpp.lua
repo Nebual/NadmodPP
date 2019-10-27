@@ -20,14 +20,11 @@ net.Receive("nadmod_propowners",function(len)
 	end
 	for i=1, net.ReadUInt(32) do
 		local id, str = net.ReadUInt(16), nameMap[net.ReadUInt(8)]
-		if id==0 then break end
 		if str == "-" then Props[id] = nil PropNames[id] = nil
 		elseif str == "W" then PropNames[id] = "World"
 		elseif str == "O" then PropNames[id] = "Ownerless"
 		else
 			Props[id] = str
-			local ply = player.GetBySteamID(str)
-			PropNames[id] = ply and ply:IsValid() and ply:Nick() or "N/A"
 		end
 	end
 end)
@@ -80,7 +77,16 @@ hook.Add("HUDPaint", "NADMOD.HUDPaint", function()
 	if !tr.HitNonWorld then return end
 	local ent = tr.Entity
 	if ent:IsValid() && !ent:IsPlayer() then
-		local text = "Owner: " .. (PropNames[ent:EntIndex()] or "N/A")
+		local index = ent:EntIndex()
+		local name = PropNames[index]
+		if not name then
+			local ply = NADMOD.GetPropOwner(ent)
+			if ply and ply:IsValid() then
+				name = ply:Nick()
+				PropNames[index] = name
+			end
+		end
+		local text = "Owner: " .. (name or "N/A")
 		surface.SetFont(font)
 		local Width, Height = surface.GetTextSize(text)
 		local boxWidth = Width + 25

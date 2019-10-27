@@ -97,7 +97,6 @@ function NADMOD.SendPropOwners(props, ply)
 		for i=1, nameMapi do
 			net.WriteString(nameMap[i])
 		end
-		
 		net.WriteUInt(count,32)
 		for k,v in pairs(props) do
 			net.WriteUInt(k,16)
@@ -117,16 +116,14 @@ end
 
 function NADMOD.PPInitPlayer(ply)
 	local steamid = ply:SteamID()
-	for _,v in pairs(NADMOD.Props) do
+	local tbl = {}
+	for k, v in pairs(NADMOD.Props) do
+		tbl[k] = v.SteamID
 		if v.SteamID == steamid then 
 			v.Owner = ply
 			v.Ent.SPPOwner = ply
 			if v.Ent.SetPlayer then v.Ent:SetPlayer(ply) end
 		end
-	end
-	local tbl = {}
-	for k,v in pairs(NADMOD.Props) do
-		tbl[k] = v.SteamID
 	end
 	NADMOD.SendPropOwners(tbl, ply)
 end
