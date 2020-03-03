@@ -199,6 +199,7 @@ function NADMOD.AdminPanel(Panel, runByNetReceive)
 end
 
 local metaply = FindMetaTable("Player")
+local metaent = FindMetaTable("Entity")
 
 -- Wrapper function as Bots return nothing clientside for their SteamID64
 function metaply:SteamID64bot()
