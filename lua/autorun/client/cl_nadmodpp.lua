@@ -280,7 +280,6 @@ net.Receive("nadmod_notify", function(len)
 end)
 
 CPPI = {}
-local metaent = FindMetaTable("Entity")
 
 function CPPI:GetName() return "Nadmod Prop Protection" end
 function CPPI:GetVersion() return "" end
