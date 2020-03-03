@@ -200,7 +200,7 @@ end
 
 net.Receive("nadmod_ppfriends",function(len)
 	NADMOD.Friends = net.ReadTable()
-	for _,tar in pairs(player.GetAll()) do
+	for _,tar in pairs(player.GetHumans()) do
 		CreateClientConVar("npp_friend_"..tar:SteamID64(),NADMOD.Friends[tar:SteamID()] and "1" or "0", false, false)
 		RunConsoleCommand("npp_friend_"..tar:SteamID64(),NADMOD.Friends[tar:SteamID()] and "1" or "0")
 	end
