@@ -198,17 +198,31 @@ function NADMOD.AdminPanel(Panel, runByNetReceive)
 	Panel:Button("Cleanup World Ropes", "nadmod_cleanworldropes")
 end
 
+local metaply = FindMetaTable("Player")
+local metaent = FindMetaTable("Entity")
+
+-- Wrapper function as Bots return nothing clientside for their SteamID64
+function metaply:SteamID64bot()
+	if( not IsValid( self ) ) then return end
+	if self:IsBot() then
+		-- Calculate Bot's SteamID64 according to gmod wiki
+		return  ( 90071996842377216 + tonumber( string.sub( self:Nick(), 4) ) -1 )
+	else
+		return self:SteamID64()
+	end
+end
+
 net.Receive("nadmod_ppfriends",function(len)
 	NADMOD.Friends = net.ReadTable()
 	for _,tar in pairs(player.GetAll()) do
-		CreateClientConVar("npp_friend_"..tar:SteamID64(),NADMOD.Friends[tar:SteamID()] and "1" or "0", false, false)
-		RunConsoleCommand("npp_friend_"..tar:SteamID64(),NADMOD.Friends[tar:SteamID()] and "1" or "0")
+		CreateClientConVar("npp_friend_"..tar:SteamID64bot(),NADMOD.Friends[tar:SteamID()] and "1" or "0", false, false)
+		RunConsoleCommand("npp_friend_"..tar:SteamID64bot(),NADMOD.Friends[tar:SteamID()] and "1" or "0")
 	end
 end)
 
 concommand.Add("npp_applyfriends",function(ply,cmd,args)
 	for _,tar in pairs(player.GetAll()) do
-		NADMOD.Friends[tar:SteamID()] = GetConVar("npp_friend_"..tar:SteamID64()):GetBool()
+		NADMOD.Friends[tar:SteamID()] = GetConVar("npp_friend_"..tar:SteamID64bot()):GetBool()
 	end
 	net.Start("nadmod_ppfriends")
 		net.WriteTable(NADMOD.Friends)
@@ -235,7 +249,7 @@ function NADMOD.ClientPanel(Panel)
 	else
 		for _, tar in pairs(Players) do
 			if(IsValid(tar) and tar != LocalPlayer()) then
-				Panel:CheckBox(tar:Nick(), "npp_friend_"..tar:SteamID64())
+				Panel:CheckBox(tar:Nick(), "npp_friend_"..tar:SteamID64bot())
 			end
 		end
 		Panel:Button("Apply Friends", "npp_applyfriends")
@@ -266,8 +280,6 @@ net.Receive("nadmod_notify", function(len)
 end)
 
 CPPI = {}
-local metaent = FindMetaTable("Entity")
-local metaply = FindMetaTable("Player")
 
 function CPPI:GetName() return "Nadmod Prop Protection" end
 function CPPI:GetVersion() return "" end
