@@ -1,0 +1,8 @@
+{
+	"recommendations": [
+		"sumneko.lua",
+		"EditorConfig.EditorConfig",
+		"JohnnyMorganz.stylua",
+		"goz3rr.vscode-glualint"
+	]
+}
