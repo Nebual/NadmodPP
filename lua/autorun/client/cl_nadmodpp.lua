@@ -61,7 +61,7 @@ function NADMOD.PlayerCanTouch(ply, ent)
 		return true
 	end
 	-- Admins can touch anyones props + world
-	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) then
+	if NADMOD.PPConfig["adminall"] and NADMOD.IsPPAdmin(ply) and ent:GetClass() ~= "gmod_wire_expression2" then
 		return true
 	end
 	-- Players can touch their own props
