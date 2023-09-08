@@ -191,12 +191,13 @@ end)
 
 concommand.Add("npp_apply", function()
 	for k, v in pairs(NADMOD.PPConfig) do
+		-- TODO: These convars should ideally be cached (in the NADMOD.PPConfig object?)
 		if isbool(v) then
 			NADMOD.PPConfig[k] = GetConVar("npp_" .. k):GetBool()
 		elseif isnumber(v) then
-			NADMOD.PPConfig[k] = GetConVarNumber("npp_" .. k)
+			NADMOD.PPConfig[k] = GetConVar("npp_" .. k):GetFloat()
 		else
-			NADMOD.PPConfig[k] = GetConVarString("npp_" .. k)
+			NADMOD.PPConfig[k] = GetConVar("npp_" .. k):GetString()
 		end
 	end
 	net.Start("nadmod_ppconfig")
