@@ -1,0 +1,26 @@
+name: Lint and format
+
+on: workflow_call
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      GLUAFIXER_VERSION: 1.26.0
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: JohnnyMorganz/stylua-action@v2
+        with:
+          token: ${{ github.token }}
+          version: latest
+          args: --check lua/
+
+      - name: Download GLuaFixer
+        run: |
+          curl --retry 3 --location https://github.com/FPtje/GLuaFixer/releases/download/$GLUAFIXER_VERSION/glualint-$GLUAFIXER_VERSION-x86_64-linux.zip --output gluafixer.zip
+          unzip gluafixer.zip
+
+      - name: Run GLuaFixer
+        run: ./glualint --output-format github --config .glualint.json lint lua

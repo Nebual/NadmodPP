@@ -1,0 +1,9 @@
+name: Pull request created or updated
+
+on: pull_request
+
+jobs:
+  lint:
+    uses: "./.github/workflows/lint.yml"
+    # Only run on forks to avoid duplicating the "push" workflow
+    if: ${{ github.event.pull_request.head.repo.fork }}

@@ -1,0 +1,9 @@
+name: Push to non-release branch
+
+on:
+  push:
+    branches-ignore: master
+
+jobs:
+  lint:
+    uses: "./.github/workflows/lint.yml"
